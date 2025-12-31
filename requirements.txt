@@ -1,0 +1,6 @@
+streamlit
+yfinance
+pandas
+pandas_ta
+xlsxwriter
+numpy<2.3
