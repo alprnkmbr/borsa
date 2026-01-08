@@ -17,10 +17,13 @@ st.markdown("Bu uygulama, **V8.2 Stratejisi** (EMA + SuperTrend + RSI + Hacim) i
 
 # --- AYARLAR (Senin Dosyandan Birebir Alındı) ---
 HISSELER = [
-    "ASELS.IS", "ULKER.IS", "TUPRS.IS", "MGROS.IS", "VESBE.IS", 
-    "SAHOL.IS", "KCHOL.IS", "TCELL.IS", "BIMAS.IS", "THYAO.IS", 
-    "SOKM.IS", "ASTOR.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", 
-    "FROTO.IS", "SASA.IS", "KLRHO.IS", "TERA.IS", "TEHOL.IS"
+    "TUPRS.IS", "ASTOR.IS", "DOAS.IS", 
+    "MGROS.IS", "BIMAS.IS", "SOKM.IS", 
+    "AKBNK.IS", "YKBNK.IS",
+    "EDATA.IS", "RUBNS.IS", 
+    "VESBE.IS", "SASA.IS", "TEHOL.IS",
+    "ASELS.IS", "ISCTR.IS", "SAHOL.IS", "KCHOL.IS", "TCELL.IS", "ULKER.IS", "THYAO.IS", 
+    "KLRHO.IS", "TERA.IS"
 ]
 
 # --- FONKSİYONLAR (Senin Kodundan Birebir Alındı) ---
@@ -264,4 +267,5 @@ if st.button("🚀 Portföyümü Analiz Et"):
             mime="application/vnd.ms-excel"
         )
     else:
+
         st.error("❌ Veri çekilemedi. Lütfen daha sonra tekrar deneyiniz.")
