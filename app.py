@@ -21,7 +21,7 @@ HISSELER = [
     "MGROS.IS", "BIMAS.IS", "SOKM.IS", 
     "AKBNK.IS", "YKBNK.IS",
     "EDATA.IS", "RUBNS.IS", 
-    "VESBE.IS", "SASA.IS", "TEHOL.IS",
+    "VESBE.IS", "TEHOL.IS",
     "ASELS.IS", "ISCTR.IS", "SAHOL.IS", "KCHOL.IS", "TCELL.IS", "ULKER.IS", "THYAO.IS", 
     "KLRHO.IS", "TERA.IS"
 ]
@@ -251,3 +251,4 @@ if st.button("🚀 Portföyümü Analiz Et"):
         )
     else:
         st.error("❌ Veri çekilemedi. Lütfen daha sonra tekrar deneyiniz.")
+
