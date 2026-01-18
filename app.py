@@ -12,10 +12,10 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Portföy Analiz Botu V10", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Portföy Analiz Botu V11", page_icon="📊", layout="wide")
 
 st.title("📊 Kişisel Portföy Analiz Raporu (Yönetilebilir Mod)")
-st.markdown("Bu uygulama, **V16.0 Stratejisi** ile portföyünü ve piyasayı **isteğe bağlı** olarak tarar.")
+st.markdown("Bu uygulama, **V16.1 Stratejisi** ile portföyünü ve piyasayı **isteğe bağlı** olarak tarar.")
 
 # --- DOSYA YÖNETİMİ (PORTFÖY KAYIT) ---
 PORTFOY_DOSYASI = "portfoy.json"
@@ -30,7 +30,7 @@ def portfoy_kaydet(liste):
     with open(PORTFOY_DOSYASI, "w") as f:
         json.dump(liste, f)
 
-# Session State Başlangıcı (Veriler hafızada kalsın diye)
+# Session State Başlangıcı
 if 'portfoy_listesi' not in st.session_state:
     st.session_state['portfoy_listesi'] = portfoy_yukle()
 
@@ -41,23 +41,22 @@ if 'sonuc_bist100' not in st.session_state:
 if 'sonuc_tum' not in st.session_state:
     st.session_state['sonuc_tum'] = None
 
-# --- BIST LİSTELERİ (GÜNCEL) ---
-# Not: Yfinance scraping bazen yavaş olduğu için geniş bir statik liste tanımladım.
+# --- BIST LİSTELERİ ---
 BIST_100_LISTESI = [
-    "AEFES.IS", "AGHOL.IS", "AHGAZ.IS", "AKBNK.IS", "AKCNS.IS", "AKFGY.IS", "AKFYE.IS", "AKSA.IS", "AKSEN.IS", "ALARK.IS", 
-    "ALBRK.IS", "ALFAS.IS", "ARCLK.IS", "ASELS.IS", "ASGYO.IS", "ASTOR.IS", "BERA.IS", "BIENY.IS", "BIMAS.IS", "BIOEN.IS", 
-    "BOBET.IS", "BRSAN.IS", "BRYAT.IS", "BUCIM.IS", "CANTE.IS", "CCOLA.IS", "CEMTS.IS", "CIMSA.IS", "CWENE.IS", "DOAS.IS", 
-    "DOHOL.IS", "ECILC.IS", "ECZYT.IS", "EGEEN.IS", "EKGYO.IS", "ENERY.IS", "ENJSA.IS", "ENKAI.IS", "EREGL.IS", "EUPWR.IS", 
-    "EUREN.IS", "FROTO.IS", "GARAN.IS", "GENIL.IS", "GESAN.IS", "GLYHO.IS", "GUBRF.IS", "GWIND.IS", "HALKB.IS", "HEKTS.IS", 
-    "IMASM.IS", "IPEKE.IS", "ISCTR.IS", "ISDMR.IS", "ISGYO.IS", "ISMEN.IS", "IZMDC.IS", "KARSN.IS", "KAYSE.IS", "KCAER.IS", 
-    "KCHOL.IS", "KMPUR.IS", "KONTR.IS", "KONYA.IS", "KORDS.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "KZBGY.IS", "MAVI.IS", 
-    "MGROS.IS", "MIATK.IS", "ODAS.IS", "OTKAR.IS", "OYAKC.IS", "PENTA.IS", "PETKM.IS", "PGSUS.IS", "PSGYO.IS", "QUAGR.IS", 
-    "REEDR.IS", "SAHOL.IS", "SASA.IS", "SISE.IS", "SKBNK.IS", "SMRTG.IS", "SNOVEL.IS", "SOKM.IS", "TABGD.IS", "TAVHL.IS", 
-    "TCELL.IS", "THYAO.IS", "TKFEN.IS", "TOASO.IS", "TSKB.IS", "TTKOM.IS", "TTRAK.IS", "TUKAS.IS", "TUPRS.IS", "ULKER.IS", 
-    "VAKBN.IS", "VESBE.IS", "YEOTK.IS", "YKBNK.IS", "YYLGD.IS", "ZOREN.IS"
+ "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS", "AKBNK.IS", "AKCNS.IS", "AKFYE.IS", "AKSA.IS", "AKSEN.IS", "ALARK.IS",
+ "ALFAS.IS", "ANSGR.IS", "ARCLK.IS", "ASELS.IS", "ASTOR.IS", "ASUZU.IS", "AYDEM.IS", "BAGFS.IS", "BERA.IS", "BIENP.IS", 
+ "BIMAS.IS", "BIOEN.IS", "BOBET.IS", "BRSAN.IS", "BRYAT.IS", "BSOKE.IS", "BTCIM.IS", "CANTE.IS", "CCOLA.IS", "CIMSA.IS",
+ "CWENE.IS", "DOAS.IS", "DOHOL.IS", "EBEBK.IS", "ECILC.IS", "ECZYT.IS", "EGEEN.IS", "EKGYO.IS", "ENJSA.IS", "ENKAI.IS", 
+ "EREGL.IS", "EUPWR.IS", "EUREN.IS", "FENER.IS", "FROTO.IS", "GARAN.IS", "GENIL.IS", "GESAN.IS", "GSRAY.IS", "GUBRF.IS", 
+ "GWIND.IS", "HALKB.IS", "HEKTS.IS", "IPEKE.IS", "ISCTR.IS", "ISGYO.IS", "ISMEN.IS", "IZENR.IS", "KAYSE.IS", "KCAER.IS",
+ "KCHOL.IS", "KLRHO.IS", "KMPUR.IS", "KONTR.IS", "KONYA.IS", "KORDS.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "MAVI.IS",
+ "MGROS.IS", "MIATK.IS", "ODAS.IS", "OTKAR.IS", "OYAKC.IS", "PEKGY.IS", "PETKM.IS", "PGSUS.IS", "QUAGR.IS", "RALYH.IS",
+ "REEDR.IS", "SAHOL.IS", "SASA.IS", "SAYAS.IS", "SDTTR.IS", "SISE.IS", "SKBNK.IS", "SMRTG.IS", "SOKM.IS", "TABGD.IS",
+ "TARKM.IS", "TATEN.IS", "TAVHL.IS", "TCELL.IS", "THYAO.IS", "TKFEN.IS", "TOASO.IS", "TRALT.IS", "TRENJ.IS", "TRMET.IS",
+ "TSKB.IS", "TSPOR.IS", "TTKOM.IS", "TTRAK.IS", "TUPRS.IS", "TURSG.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", 
+ "YEOTK.IS", "YKBNK.IS", "YYLGD.IS", "ZOREN.IS"
 ]
 
-# Yan tahtalar ve diğer popüler hisseler (Genişletilebilir)
 BIST_DIGER_LISTESI = [
     "TERA.IS", "TEHOL.IS", "EDATA.IS", "RUBNS.IS", "KLRHO.IS", "TURSG.IS", "ANHYT.IS", "ANSGR.IS", 
     "TRGYO.IS", "HLGYO.IS", "OZKGY.IS", "GSDHO.IS", "IHLAS.IS", "NETAS.IS", "LOGO.IS", "KAREL.IS",
@@ -65,19 +64,15 @@ BIST_DIGER_LISTESI = [
     "KFEIN.IS", "LINK.IS", "ARDYZ.IS", "FONET.IS", "VBTYZ.IS", "ONCSM.IS", "SDTTR.IS", "TETMT.IS",
     "DOCO.IS", "CLEBI.IS", "AYGAZ.IS", "TRCAS.IS", "DEVA.IS", "SELEC.IS", "MPARK.IS", "LKMNH.IS"
 ]
-# BIST 100 içinde olmayanları filtrele (Çakışma olmasın)
 BIST_DIGER_LISTESI = [h for h in BIST_DIGER_LISTESI if h not in BIST_100_LISTESI]
 
 
 # --- SİDEBAR: PORTFÖY YÖNETİMİ ---
 with st.sidebar:
     st.header("💼 Portföy Yönetimi")
-    
-    # Mevcut Portföyü Göster
     st.write("📋 **Mevcut Hisselerin:**")
     st.code(", ".join([h.replace(".IS","") for h in st.session_state['portfoy_listesi']]))
     
-    # Hisse Ekleme
     yeni_hisse = st.text_input("Hisse Kodu Gir (Örn: GARAN):").upper()
     if st.button("➕ Ekle"):
         if yeni_hisse:
@@ -90,7 +85,6 @@ with st.sidebar:
             else:
                 st.warning("Bu hisse zaten listenizde.")
 
-    # Hisse Çıkarma
     silinecek_hisse = st.selectbox("Çıkarılacak Hisse Seç:", options=["Seçiniz"] + [h.replace(".IS","") for h in st.session_state['portfoy_listesi']])
     if st.button("➖ Çıkar"):
         if silinecek_hisse != "Seçiniz":
@@ -283,7 +277,8 @@ with tab1:
         prog.progress(1.0)
     
     if st.session_state['sonuc_portfoy'] is not None:
-        st.dataframe(st.session_state['sonuc_portfoy'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, use_container_width=True)
+        # GÜNCELLENEN KISIM: width="stretch"
+        st.dataframe(st.session_state['sonuc_portfoy'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
 
 # 2. SEKME: BIST 100
 with tab2:
@@ -300,7 +295,8 @@ with tab2:
         prog.progress(1.0)
     
     if st.session_state['sonuc_bist100'] is not None:
-        st.dataframe(st.session_state['sonuc_bist100'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, use_container_width=True)
+        # GÜNCELLENEN KISIM: width="stretch"
+        st.dataframe(st.session_state['sonuc_bist100'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
 
 # 3. SEKME: TÜM / YAN TAHTALAR
 with tab3:
@@ -317,5 +313,5 @@ with tab3:
         prog.progress(1.0)
     
     if st.session_state['sonuc_tum'] is not None:
-        st.dataframe(st.session_state['sonuc_tum'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, use_container_width=True)
-
+        # GÜNCELLENEN KISIM: width="stretch"
+        st.dataframe(st.session_state['sonuc_tum'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
