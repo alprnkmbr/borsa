@@ -10,10 +10,10 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Portföy Analiz Botu V3", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Portföy Analiz Botu V6", page_icon="📊", layout="wide")
 
-st.title("📊 Kişisel Portföy Analiz Raporu (Sadeleştirilmiş)")
-st.markdown("Bu uygulama, **V10.0 Stratejisi** (3'lü EMA + MACD + Günlük SuperTrend + RSI + Hacim) ile analiz yapar.")
+st.title("📊 Kişisel Portföy Analiz Raporu (Full + Full)")
+st.markdown("Bu uygulama, **V13.0 Stratejisi** (3'lü EMA + MACD + SuperTrend + Net Performans) ile analiz yapar.")
 
 # --- AYARLAR ---
 HISSELER = [
@@ -21,7 +21,7 @@ HISSELER = [
     "MGROS.IS", "BIMAS.IS", "SOKM.IS", 
     "AKBNK.IS", "YKBNK.IS",
     "EDATA.IS", "RUBNS.IS", 
-    "VESBE.IS", "TEHOL.IS",
+    "VESBE.IS", "SASA.IS", "TEHOL.IS",
     "ASELS.IS", "ISCTR.IS", "SAHOL.IS", "KCHOL.IS", "TCELL.IS", "ULKER.IS", "THYAO.IS", 
     "KLRHO.IS", "TERA.IS"
 ]
@@ -34,7 +34,7 @@ def veri_cek_ve_hazirla(sembol):
         if df_d.empty: return None
         if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
         
-        # HAFTALIK VERİ (Sadece Hedef Kanalı İçin Tutuyoruz)
+        # HAFTALIK VERİ (Sadece Hedef Kanalı İçin)
         df_w = yf.download(sembol, period="5y", interval="1wk", progress=False)
         if df_w.empty: return None
         if isinstance(df_w.columns, pd.MultiIndex): df_w.columns = df_w.columns.get_level_values(0)
@@ -61,7 +61,7 @@ def veri_cek_ve_hazirla(sembol):
 
 def indikatorleri_hesapla(df, sembol):
     try:
-        # 1. EMA'lar (Günlük: 50, 100, 200)
+        # 1. EMA'lar (50, 100, 200)
         df['EMA_50_D'] = ta.ema(df['Close'], length=50)
         df['EMA_100_D'] = ta.ema(df['Close'], length=100)
         df['EMA_200_D'] = ta.ema(df['Close'], length=200)
@@ -94,6 +94,10 @@ def indikatorleri_hesapla(df, sembol):
         # 7. Hacim Analizi
         df['Vol_SMA20'] = df['Volume'].rolling(window=20).mean()
         df['RVOL'] = df['Volume'] / df['Vol_SMA20']
+
+        # 8. PERFORMANS ANALİZİ (YÜZDELİK)
+        df['Perf_1W'] = df['Close'].pct_change(periods=5) * 100
+        df['Perf_1M'] = df['Close'].pct_change(periods=21) * 100
         
         return df
     except Exception as e:
@@ -112,24 +116,34 @@ def strateji_analizi(df, sembol):
         ema_200 = bugun['EMA_200_D']
         
         st_deger_d = bugun['ST_DEGER_D']
-        st_yon_d = bugun['ST_YON_D'] # 1: Yeşil (Al), -1: Kırmızı (Sat)
+        st_yon_d = bugun['ST_YON_D'] 
         rsi = bugun['RSI']
         
-        # MACD Değerleri
+        # Performans Verileri
+        perf_1w = bugun.get('Perf_1W', 0)
+        perf_1m = bugun.get('Perf_1M', 0)
+
+        # --- FORMATLAMA (YÜZDE GÖSTERİMİ) ---
+        def format_perf(val):
+            if pd.isna(val): return "-"
+            renk = "🟢" if val >= 0 else "🔴"
+            prefix = "+" if val >= 0 else "" 
+            return f"{renk} %{prefix}{round(val, 2)}"
+
+        # MACD
         macd_val = bugun.get('MACD_12_26_9')
         macd_sig = bugun.get('MACDs_12_26_9')
         macd_al = macd_val > macd_sig
         
         # HEDEFLER
         hedef_gunluk = bugun['LRC_UPPER_D']
-        hedef_haftalik = bugun['LRC_UPPER_W'] # Hala hedef için tutuyoruz
         bb_mid = bugun['BB_MID']
 
         # Hacim
         rvol = bugun['RVOL'] if not pd.isna(bugun['RVOL']) else 1.0
         hacim_ikon = "🔋" if rvol > 1.2 else ("🪫" if rvol < 0.8 else "▪️")
         
-        # ANA TREND KONTROLÜ (SuperTrend H Yerine EMA 200)
+        # ANA TREND
         fiyat_ema200_ustunde = fiyat > ema_200
         
         # Mesafeler
@@ -142,11 +156,14 @@ def strateji_analizi(df, sembol):
         macd_etiket = "🟢 AL" if macd_al else "🔴 SAT"
 
         # --- TABLO VERİSİ ---
+        # BURAYI DÜZELTTİK: EMA 50 ve 100 Geri Geldi
         veri = {
             "Hisse": sembol.replace(".IS", ""),
             "Fiyat": round(fiyat, 2),
-            "EMA(50)": round(ema_50, 2),
-            "EMA(100)": round(ema_100, 2),
+            "1H Değ.": format_perf(perf_1w),
+            "1A Değ.": format_perf(perf_1m),
+            "EMA(50)": round(ema_50, 2),   # GERİ EKLENDİ
+            "EMA(100)": round(ema_100, 2), # GERİ EKLENDİ
             "EMA(200)": round(ema_200, 2), 
             "MACD": macd_etiket,
             "RSI": round(rsi, 0),
@@ -157,46 +174,40 @@ def strateji_analizi(df, sembol):
             "STRATEJİK YORUM": ""
         }
 
-        # --- YORUM MANTIĞI (SADELEŞTİRİLMİŞ) ---
-        
-        # SENARYO 1: EMA 200 ALTI (Ayı Piyasası)
+        # --- YORUM MANTIĞI ---
+        # SENARYO 1: EMA 200 ALTI
         if not fiyat_ema200_ustunde:
             if rsi < 30:
                 veri["STRATEJİK YORUM"] = "⚡ TEPKİ: EMA200 altı ama aşırı ucuz (RSI<30)."
             elif macd_al and st_yon_d == 1:
-                 veri["STRATEJİK YORUM"] = "🚀 DİP DÖNÜŞÜ?: EMA200 altı ama ST ve MACD Al verdi. Riskli alım."
+                 veri["STRATEJİK YORUM"] = "🚀 DİP DÖNÜŞÜ?: Riskli ama göstergeler düzeliyor."
             else:
-                veri["STRATEJİK YORUM"] = "⛔ UZAK DUR: Fiyat EMA200 altında. Trend Negatif."
+                veri["STRATEJİK YORUM"] = "⛔ UZAK DUR: Trend Negatif (EMA200 Altı)."
 
-        # SENARYO 2: EMA 200 ÜSTÜ (Boğa Bölgesi)
+        # SENARYO 2: EMA 200 ÜSTÜ
         else:
-            # 1. Kar Al Bölgesi
             if rsi > 70:
-                veri["STRATEJİK YORUM"] = f"⚠️ KAR AL: RSI şişti ({rsi}). Düzeltme gelebilir."
+                veri["STRATEJİK YORUM"] = f"⚠️ KAR AL: RSI şişti ({rsi}). Düzeltme yakındır."
             elif tavan_uzaklik_d < 0.02:
-                 veri["STRATEJİK YORUM"] = f"🧱 DİRENÇTE: Kısa vade tavana ({round(hedef_gunluk,2)}) değdi."
+                 veri["STRATEJİK YORUM"] = f"🧱 DİRENÇTE: Hedefe ({round(hedef_gunluk,2)}) değdi."
             
-            # 2. Trend Kontrolü (S.Trend Günlük + MACD)
-            elif st_yon_d == 1: # Günlük Trend Pozitif
+            elif st_yon_d == 1: 
                 ek_mesaj = " (Hacim Zayıf!)" if rvol < 0.8 else " (Hacim Güçlü🚀)" if rvol > 1.3 else ""
                 
                 if macd_al:
-                    # En Güçlü Senaryo: Fiyat > EMA200 + ST Yeşil + MACD Al
                     if 0 < bb_uzaklik < 0.03:
                         veri["STRATEJİK YORUM"] = f"✅ EKLEME: Ortalamalara yakın, tam yol ileri.{ek_mesaj}"
                     else:
                         risk = round(st_uzaklik_d * 100, 1)
-                        veri["STRATEJİK YORUM"] = f"⚖️ GİRİŞ/TUT: Stop Risk %{risk}. Trend çok güçlü.{ek_mesaj}"
+                        veri["STRATEJİK YORUM"] = f"⚖️ GİRİŞ/TUT: Stop Risk %{risk}. Trend güçlü.{ek_mesaj}"
                 else:
-                    # Trend Yeşil ama MACD Sat (Yorgunluk)
-                    veri["STRATEJİK YORUM"] = f"⚠️ YORGUNLUK: Trend yukarı ama MACD negatife döndü. Temkinli ol."
+                    veri["STRATEJİK YORUM"] = f"⚠️ YORGUNLUK: Trend iyi ama MACD negatife döndü."
             
-            # 3. Düzeltme Modu (Fiyat > EMA200 ama ST Kırmızı)
             else: 
                 if macd_al:
                     veri["STRATEJİK YORUM"] = f"👀 TAKİP: Düzeltme bitiyor olabilir (MACD Al)."
                 else:
-                    veri["STRATEJİK YORUM"] = f"⏳ DÜZELTME: Kısa vade satıcılı. EMA200'e çekilme olabilir."
+                    veri["STRATEJİK YORUM"] = f"⏳ DÜZELTME: Kısa vade satıcılı. EMA200'e çekilme beklenebilir."
 
         return veri
     except Exception as e:
@@ -230,10 +241,10 @@ if st.button("🚀 Portföyümü Analiz Et"):
     df_sonuc = pd.DataFrame(sonuclar)
 
     if not df_sonuc.empty:
-        # Sıralama: Önce EMA 200 Üstünde olanlar, Sonra Günlük ST, Sonra MACD
+        # Sıralama
         df_sonuc = df_sonuc.sort_values(by=["S.Trend(G)", "RSI"], ascending=[False, False])
         
-        st.success("✅ Rapor Hazır! (Haftalık ST Kaldırıldı, Odak EMA 200)")
+        st.success("✅ Rapor Hazır! (EMA 50/100 Geri Getirildi, Performanslar Korundu)")
         
         # Tabloyu Göster
         st.dataframe(df_sonuc, use_container_width=True, height=600)
@@ -246,9 +257,8 @@ if st.button("🚀 Portföyümü Analiz Et"):
         st.download_button(
             label="📥 Excel Raporunu İndir",
             data=buffer,
-            file_name="Portfoy_Analiz_Raporu_V10.xlsx",
+            file_name="Portfoy_Analiz_Raporu_V13.xlsx",
             mime="application/vnd.ms-excel"
         )
     else:
         st.error("❌ Veri çekilemedi. Lütfen daha sonra tekrar deneyiniz.")
-
