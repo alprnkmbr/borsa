@@ -10,36 +10,41 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Portföy Analiz Botu V7", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Portföy Analiz Botu V8", page_icon="📊", layout="wide")
 
-st.title("📊 Kişisel Portföy Analiz Raporu (Sıralama Hatası Giderildi)")
-st.markdown("Bu uygulama, **V14.0 Stratejisi** (Doğru Sıralama + 3'lü EMA + MACD + Performans) ile analiz yapar.")
+st.title("📊 Kişisel Portföy Analiz Raporu (Ayrıştırılmış & Formatlı)")
+st.markdown("Bu uygulama, **V15.0 Stratejisi** (Portföy/Piyasa Ayrımı + 2 Basamak Hassasiyet) ile analiz yapar.")
 
-# --- AYARLAR ---
-HISSELER = [
+# --- KULLANICI AYARLARI (HİSSELERİ BURADAN YÖNET) ---
+
+# 1. SENİN PORTFÖYÜN (Elimde Var Dediklerin)
+PORTFOY = [
     "TUPRS.IS", "ASTOR.IS", "DOAS.IS", 
     "MGROS.IS", "BIMAS.IS", "SOKM.IS", 
     "AKBNK.IS", "YKBNK.IS",
     "EDATA.IS", "RUBNS.IS", 
-    "VESBE.IS", "SASA.IS", "TEHOL.IS",
-    "ASELS.IS", "ISCTR.IS", "SAHOL.IS", "KCHOL.IS", "TCELL.IS", "ULKER.IS", "THYAO.IS", 
-    "KLRHO.IS", "TERA.IS"
+    "VESBE.IS", "TEHOL.IS",
 ]
+
+# 2. GENEL TAKİP LİSTESİ (Piyasa / BIST 100 vb.)
+GENEL_TAKIP = [
+"AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS", "AKBNK.IS", "AKCNS.IS", "AKFYE.IS", "AKSA.IS", "AKSEN.IS", "ALARK.IS", "ALFAS.IS", "ARCLK.IS", "ASELS.IS", "ASTOR.IS", "ASUZU.IS", "AYDEM.IS", "BAGFS.IS", "BERA.IS", "BIENP.IS", "BIMAS.IS", "BIOEN.IS", "BOBET.IS", "BRISA.IS", "BRYAT.IS", "BSOKE.IS", "BTCIM.IS", "CANTE.IS", "CCOLA.IS", "CIMSA.IS", "CWENE.IS", "DOAS.IS", "DOHOL.IS", "EBEBK.IS", "ECILC.IS", "ECZYT.IS", "EGEEN.IS", "EKGYO.IS", "ENJSA.IS", "ENKAI.IS", "EREGL.IS", "EUPWR.IS", "EUREN.IS", "FROTO.IS", "GARAN.IS", "GENIL.IS", "GESAN.IS", "GUBRF.IS", "GWIND.IS", "HALKB.IS", "HEKTS.IS", "IPEKE.IS", "ISCTR.IS", "ISGYO.IS", "ISMEN.IS", "IZENR.IS", "KAYSE.IS", "KCAER.IS", "KCHOL.IS", "KLRHO.IS", "KMPUR.IS", "KONTR.IS", "KONYA.IS", "KORDS.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "MAVI.IS", "MGROS.IS", "MIATK.IS", "ODAS.IS", "OTKAR.IS", "OYAKC.IS", "PEKGY.IS", "PETKM.IS", "PGSUS.IS", "QUAGR.IS", "REEDR.IS", "SAHOL.IS", "SASA.IS", "SAYAS.IS", "SDTTR.IS", "SISE.IS", "SKBNK.IS", "SMRTG.IS", "SOKM.IS", "TABGD.IS", "TARKM.IS", "TATEN.IS", "TAVHL.IS", "TCELL.IS", "THYAO.IS", "TKFEN.IS", "TOASO.IS", "TSKB.IS", "TTKOM.IS", "TTRAK.IS", "TUPRS.IS", "TURSG.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", "YEOTK.IS", "YKBNK.IS", "YYLGD.IS", "ZOREN.IS"
+]
+
+# İki listeyi birleştirip tek seferde tarıyoruz (Mükerrerleri önlemek için set kullanıyoruz)
+TUM_HISSELER = list(set(PORTFOY + GENEL_TAKIP))
 
 # --- FONKSİYONLAR ---
 def veri_cek_ve_hazirla(sembol):
     try:
-        # GÜNLÜK VERİ
         df_d = yf.download(sembol, period="2y", interval="1d", progress=False)
         if df_d.empty: return None
         if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
         
-        # HAFTALIK VERİ (Hedef Kanalı İçin)
         df_w = yf.download(sembol, period="5y", interval="1wk", progress=False)
         if df_w.empty: return None
         if isinstance(df_w.columns, pd.MultiIndex): df_w.columns = df_w.columns.get_level_values(0)
         
-        # Haftalık LRC
         df_w['LRC_MID_W'] = ta.linreg(df_w['Close'], length=50)
         if df_w['LRC_MID_W'] is not None:
             stdev_w = df_w['Close'].rolling(window=50).std()
@@ -47,10 +52,8 @@ def veri_cek_ve_hazirla(sembol):
         else:
             df_w['LRC_UPPER_W'] = 0
              
-        # Lookahead Bias Önlemi
         haftalik_sinyaller = df_w[['LRC_UPPER_W']].shift(1)
         
-        # Birleştirme
         df_d.index = df_d.index.tz_localize(None)
         haftalik_sinyaller.index = haftalik_sinyaller.index.tz_localize(None)
         df_d = df_d.join(haftalik_sinyaller.reindex(df_d.index, method='ffill'))
@@ -61,41 +64,33 @@ def veri_cek_ve_hazirla(sembol):
 
 def indikatorleri_hesapla(df, sembol):
     try:
-        # 1. EMA'lar
         df['EMA_50_D'] = ta.ema(df['Close'], length=50)
         df['EMA_100_D'] = ta.ema(df['Close'], length=100)
         df['EMA_200_D'] = ta.ema(df['Close'], length=200)
         
-        # 2. MACD (12, 26, 9)
         macd = ta.macd(df['Close'], fast=12, slow=26, signal=9)
         if macd is not None:
             df = pd.concat([df, macd], axis=1)
         
-        # 3. SuperTrend GÜNLÜK
         st = ta.supertrend(df['High'], df['Low'], df['Close'], length=10, multiplier=3)
         if st is not None:
             df['ST_DEGER_D'] = st.iloc[:, 0]
             df['ST_YON_D'] = st.iloc[:, 1]
         
-        # 4. RSI
         df['RSI'] = ta.rsi(df['Close'], length=14)
         
-        # 5. Bollinger (Orta Bant)
         bb = ta.bbands(df['Close'], length=20, std=2)
         if bb is not None:
             col_mid = [c for c in bb.columns if c.startswith('BBM')][0]
             df['BB_MID'] = bb[col_mid]
         
-        # 6. LRC Kanalı GÜNLÜK
         df['LRC_MID_D'] = ta.linreg(df['Close'], length=50)
         stdev = df['Close'].rolling(window=50).std()
         df['LRC_UPPER_D'] = df['LRC_MID_D'] + (2 * stdev)
 
-        # 7. Hacim Analizi
         df['Vol_SMA20'] = df['Volume'].rolling(window=20).mean()
         df['RVOL'] = df['Volume'] / df['Vol_SMA20']
 
-        # 8. PERFORMANS ANALİZİ
         df['Perf_1W'] = df['Close'].pct_change(periods=5) * 100
         df['Perf_1M'] = df['Close'].pct_change(periods=21) * 100
         
@@ -110,7 +105,6 @@ def strateji_analizi(df, sembol):
         
         if pd.isna(bugun.get('EMA_200_D')): return None
 
-        # --- DEĞİŞKENLER ---
         ema_50 = bugun['EMA_50_D']
         ema_100 = bugun['EMA_100_D']
         ema_200 = bugun['EMA_200_D']
@@ -119,56 +113,48 @@ def strateji_analizi(df, sembol):
         st_yon_d = bugun['ST_YON_D'] 
         rsi = bugun['RSI']
         
-        # Performans Verileri (SADECE SAYI OLARAK ALIYORUZ, FORMATLAMIYORUZ)
         perf_1w = bugun.get('Perf_1W', 0)
         perf_1m = bugun.get('Perf_1M', 0)
 
-        # MACD
         macd_val = bugun.get('MACD_12_26_9')
         macd_sig = bugun.get('MACDs_12_26_9')
         macd_al = macd_val > macd_sig
         
-        # HEDEFLER
         hedef_gunluk = bugun['LRC_UPPER_D']
         bb_mid = bugun['BB_MID']
 
-        # Hacim
         rvol = bugun['RVOL'] if not pd.isna(bugun['RVOL']) else 1.0
         hacim_ikon = "🔋" if rvol > 1.2 else ("🪫" if rvol < 0.8 else "▪️")
         
-        # ANA TREND
         fiyat_ema200_ustunde = fiyat > ema_200
         
-        # Mesafeler
         bb_uzaklik = (fiyat - bb_mid) / fiyat
         tavan_uzaklik_d = (hedef_gunluk - fiyat) / fiyat
         st_uzaklik_d = abs((fiyat - st_deger_d) / fiyat)
 
-        # Etiketler
         etiket_st_d = "🟢" if st_yon_d == 1 else "🔴"
         macd_etiket = "🟢 AL" if macd_al else "🔴 SAT"
 
         # --- TABLO VERİSİ ---
-        # BURADA ARTIK STRING DEĞİL SAYI (FLOAT) SAKLIYORUZ
+        # Sayısal değerleri olduğu gibi (float) bırakıyoruz, Streamlit config ile formatlayacağız.
         veri = {
             "Hisse": sembol.replace(".IS", ""),
-            "Fiyat": round(fiyat, 2),
-            "1H Değ.": perf_1w, # Saf sayı
-            "1A Değ.": perf_1m, # Saf sayı
-            "EMA(50)": round(ema_50, 2),
-            "EMA(100)": round(ema_100, 2),
-            "EMA(200)": round(ema_200, 2), 
+            "Fiyat": fiyat,
+            "1H Değ.": perf_1w,
+            "1A Değ.": perf_1m,
+            "EMA(50)": ema_50,
+            "EMA(100)": ema_100,
+            "EMA(200)": ema_200, 
             "MACD": macd_etiket,
-            "RSI": round(rsi, 0),
+            "RSI": rsi,
             "Hacim": f"{hacim_ikon} %{int(rvol*100)}",
             "S.Trend(G)": etiket_st_d, 
-            "STOP (G)": round(st_deger_d, 2),
-            "HEDEF (G)": round(hedef_gunluk, 2), 
+            "STOP (G)": st_deger_d,
+            "HEDEF (G)": hedef_gunluk, 
             "STRATEJİK YORUM": ""
         }
 
         # --- YORUM MANTIĞI ---
-        # SENARYO 1: EMA 200 ALTI
         if not fiyat_ema200_ustunde:
             if rsi < 30:
                 veri["STRATEJİK YORUM"] = "⚡ TEPKİ: EMA200 altı ama aşırı ucuz (RSI<30)."
@@ -176,17 +162,13 @@ def strateji_analizi(df, sembol):
                  veri["STRATEJİK YORUM"] = "🚀 DİP DÖNÜŞÜ?: Riskli ama göstergeler düzeliyor."
             else:
                 veri["STRATEJİK YORUM"] = "⛔ UZAK DUR: Trend Negatif (EMA200 Altı)."
-
-        # SENARYO 2: EMA 200 ÜSTÜ
         else:
             if rsi > 70:
-                veri["STRATEJİK YORUM"] = f"⚠️ KAR AL: RSI şişti ({rsi}). Düzeltme yakındır."
+                veri["STRATEJİK YORUM"] = f"⚠️ KAR AL: RSI şişti ({int(rsi)}). Düzeltme yakındır."
             elif tavan_uzaklik_d < 0.02:
                  veri["STRATEJİK YORUM"] = f"🧱 DİRENÇTE: Hedefe ({round(hedef_gunluk,2)}) değdi."
-            
             elif st_yon_d == 1: 
                 ek_mesaj = " (Hacim Zayıf!)" if rvol < 0.8 else " (Hacim Güçlü🚀)" if rvol > 1.3 else ""
-                
                 if macd_al:
                     if 0 < bb_uzaklik < 0.03:
                         veri["STRATEJİK YORUM"] = f"✅ EKLEME: Ortalamalara yakın, tam yol ileri.{ek_mesaj}"
@@ -195,7 +177,6 @@ def strateji_analizi(df, sembol):
                         veri["STRATEJİK YORUM"] = f"⚖️ GİRİŞ/TUT: Stop Risk %{risk}. Trend güçlü.{ek_mesaj}"
                 else:
                     veri["STRATEJİK YORUM"] = f"⚠️ YORGUNLUK: Trend iyi ama MACD negatife döndü."
-            
             else: 
                 if macd_al:
                     veri["STRATEJİK YORUM"] = f"👀 TAKİP: Düzeltme bitiyor olabilir (MACD Al)."
@@ -206,13 +187,24 @@ def strateji_analizi(df, sembol):
     except Exception as e:
         return None
 
-# --- GÖRSEL FORMATLAYICI ---
-# Bu fonksiyon veriyi değiştirmez, sadece ekranda nasıl görüneceğini belirler
+# --- FORMATLAYICI (Görsel Ayarlar) ---
+# Yüzdelik değişimleri renklendiren ve formatlayan fonksiyon
 def format_yuzde(val):
     if pd.isna(val): return "-"
     renk = "🟢" if val >= 0 else "🔴"
     prefix = "+" if val >= 0 else ""
     return f"{renk} %{prefix}{val:.2f}"
+
+# Streamlit Column Config ayarları (Sayıları 2 basamaklı göstermek için)
+column_settings = {
+    "Fiyat": st.column_config.NumberColumn(format="%.2f"),
+    "EMA(50)": st.column_config.NumberColumn(format="%.2f"),
+    "EMA(100)": st.column_config.NumberColumn(format="%.2f"),
+    "EMA(200)": st.column_config.NumberColumn(format="%.2f"),
+    "STOP (G)": st.column_config.NumberColumn(format="%.2f"),
+    "HEDEF (G)": st.column_config.NumberColumn(format="%.2f"),
+    "RSI": st.column_config.NumberColumn(format="%.0f"), # RSI tam sayı olsun
+}
 
 # --- ARAYÜZ MANTIĞI ---
 if st.button("🚀 Portföyümü Analiz Et"):
@@ -222,9 +214,9 @@ if st.button("🚀 Portföyümü Analiz Et"):
     status_text = st.empty()
     sonuclar = []
     
-    total = len(HISSELER)
+    total = len(TUM_HISSELER)
     
-    for i, hisse in enumerate(HISSELER):
+    for i, hisse in enumerate(TUM_HISSELER):
         status_text.text(f"Analiz ediliyor: {hisse} ({i+1}/{total})")
         
         ham_veri = veri_cek_ve_hazirla(hisse)
@@ -242,36 +234,67 @@ if st.button("🚀 Portföyümü Analiz Et"):
     df_sonuc = pd.DataFrame(sonuclar)
 
     if not df_sonuc.empty:
-        # Varsayılan Sıralama: Performansa Göre (Sayısal olarak doğru çalışır)
+        # 1. Genel Sıralama
         df_sonuc = df_sonuc.sort_values(by=["S.Trend(G)", "RSI"], ascending=[False, False])
         
-        st.success("✅ Rapor Hazır! (Sıralama Artık Sayısal Olarak Doğru Çalışıyor)")
+        # 2. Listeleri Ayrıştır
+        # Portföydeki hisseleri bul
+        # (Listenin sonundaki .IS ekini kaldırarak karşılaştırma yapıyoruz)
+        portfoy_clean = [h.replace(".IS", "") for h in PORTFOY]
         
-        # TABLOYU GÖSTERİRKEN FORMATLIYORUZ (Veri sayı kalıyor, görüntü değişiyor)
-        # Bu yöntemle sütun başlığına tıklayınca DOĞRU sıralama yapar.
-        st.dataframe(
-            df_sonuc.style.format({
-                "1H Değ.": format_yuzde,
-                "1A Değ.": format_yuzde
-            }),
-            use_container_width=True, 
-            height=600
-        )
+        df_portfoyum = df_sonuc[df_sonuc['Hisse'].isin(portfoy_clean)]
+        df_genel = df_sonuc[~df_sonuc['Hisse'].isin(portfoy_clean)]
         
-        # EXCEL İÇİN HAZIRLIK
-        # Excel'de de ikonları görmek istersen formatı buraya uyguluyoruz
+        st.success("✅ Rapor Hazır! (Sekmelerden portföyünü veya genel piyasayı seçebilirsin)")
+        
+        # --- SEKMELER (TABS) ---
+        tab1, tab2 = st.tabs(["💼 Portföyüm", "🌍 Genel Takip Listesi"])
+        
+        with tab1:
+            st.subheader(f"Senin Portföyün ({len(df_portfoyum)} Hisse)")
+            if not df_portfoyum.empty:
+                st.dataframe(
+                    df_portfoyum.style.format({
+                        "1H Değ.": format_yuzde,
+                        "1A Değ.": format_yuzde
+                    }),
+                    column_config=column_settings, # Format ayarlarını burada uyguluyoruz
+                    use_container_width=True, 
+                    height=400
+                )
+            else:
+                st.info("Portföy listendeki hisselerden veri gelmedi veya liste boş.")
+
+        with tab2:
+            st.subheader(f"Genel Piyasa Takibi ({len(df_genel)} Hisse)")
+            if not df_genel.empty:
+                st.dataframe(
+                    df_genel.style.format({
+                        "1H Değ.": format_yuzde,
+                        "1A Değ.": format_yuzde
+                    }),
+                    column_config=column_settings, # Format ayarlarını burada uyguluyoruz
+                    use_container_width=True, 
+                    height=600
+                )
+            else:
+                st.info("Genel takip listesi boş.")
+        
+        # EXCEL İNDİRME (Tümünü İndirir)
         df_excel = df_sonuc.copy()
         df_excel["1H Değ."] = df_excel["1H Değ."].apply(format_yuzde)
         df_excel["1A Değ."] = df_excel["1A Değ."].apply(format_yuzde)
         
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            df_excel.to_excel(writer, index=False, sheet_name="Portfoy_Raporu")
+            df_excel.to_excel(writer, index=False, sheet_name="Tum_Liste")
+            if not df_portfoyum.empty:
+                df_portfoyum.to_excel(writer, index=False, sheet_name="Portfoyum")
             
         st.download_button(
-            label="📥 Excel Raporunu İndir",
+            label="📥 Excel Raporunu İndir (Tümü)",
             data=buffer,
-            file_name="Portfoy_Analiz_Raporu_V14.xlsx",
+            file_name="Portfoy_Analiz_Raporu_V15.xlsx",
             mime="application/vnd.ms-excel"
         )
     else:
