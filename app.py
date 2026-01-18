@@ -24,7 +24,7 @@ def portfoy_yukle():
     if os.path.exists(PORTFOY_DOSYASI):
         with open(PORTFOY_DOSYASI, "r") as f:
             return json.load(f)
-    return ["ASELS.IS", "THYAO.IS"] # Varsayılan
+    return ["TUPRS.IS", "ASTOR.IS", "DOAS.IS", "MGROS.IS", "BIMAS.IS", "SOKM.IS", "AKBNK.IS", "YKBNK.IS", "EDATA.IS", "RUBNS.IS", "VESBE.IS", "TEHOL.IS"] # Varsayılan
 
 def portfoy_kaydet(liste):
     with open(PORTFOY_DOSYASI, "w") as f:
@@ -318,3 +318,4 @@ with tab3:
     
     if st.session_state['sonuc_tum'] is not None:
         st.dataframe(st.session_state['sonuc_tum'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, use_container_width=True)
+
