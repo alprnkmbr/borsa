@@ -10,10 +10,10 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Portföy Analiz Botu V6", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Portföy Analiz Botu V7", page_icon="📊", layout="wide")
 
-st.title("📊 Kişisel Portföy Analiz Raporu (Full + Full)")
-st.markdown("Bu uygulama, **V13.0 Stratejisi** (3'lü EMA + MACD + SuperTrend + Net Performans) ile analiz yapar.")
+st.title("📊 Kişisel Portföy Analiz Raporu (Sıralama Hatası Giderildi)")
+st.markdown("Bu uygulama, **V14.0 Stratejisi** (Doğru Sıralama + 3'lü EMA + MACD + Performans) ile analiz yapar.")
 
 # --- AYARLAR ---
 HISSELER = [
@@ -34,12 +34,12 @@ def veri_cek_ve_hazirla(sembol):
         if df_d.empty: return None
         if isinstance(df_d.columns, pd.MultiIndex): df_d.columns = df_d.columns.get_level_values(0)
         
-        # HAFTALIK VERİ (Sadece Hedef Kanalı İçin)
+        # HAFTALIK VERİ (Hedef Kanalı İçin)
         df_w = yf.download(sembol, period="5y", interval="1wk", progress=False)
         if df_w.empty: return None
         if isinstance(df_w.columns, pd.MultiIndex): df_w.columns = df_w.columns.get_level_values(0)
         
-        # Haftalık LRC (Uzun Vade Hedef)
+        # Haftalık LRC
         df_w['LRC_MID_W'] = ta.linreg(df_w['Close'], length=50)
         if df_w['LRC_MID_W'] is not None:
             stdev_w = df_w['Close'].rolling(window=50).std()
@@ -61,7 +61,7 @@ def veri_cek_ve_hazirla(sembol):
 
 def indikatorleri_hesapla(df, sembol):
     try:
-        # 1. EMA'lar (50, 100, 200)
+        # 1. EMA'lar
         df['EMA_50_D'] = ta.ema(df['Close'], length=50)
         df['EMA_100_D'] = ta.ema(df['Close'], length=100)
         df['EMA_200_D'] = ta.ema(df['Close'], length=200)
@@ -95,7 +95,7 @@ def indikatorleri_hesapla(df, sembol):
         df['Vol_SMA20'] = df['Volume'].rolling(window=20).mean()
         df['RVOL'] = df['Volume'] / df['Vol_SMA20']
 
-        # 8. PERFORMANS ANALİZİ (YÜZDELİK)
+        # 8. PERFORMANS ANALİZİ
         df['Perf_1W'] = df['Close'].pct_change(periods=5) * 100
         df['Perf_1M'] = df['Close'].pct_change(periods=21) * 100
         
@@ -119,16 +119,9 @@ def strateji_analizi(df, sembol):
         st_yon_d = bugun['ST_YON_D'] 
         rsi = bugun['RSI']
         
-        # Performans Verileri
+        # Performans Verileri (SADECE SAYI OLARAK ALIYORUZ, FORMATLAMIYORUZ)
         perf_1w = bugun.get('Perf_1W', 0)
         perf_1m = bugun.get('Perf_1M', 0)
-
-        # --- FORMATLAMA (YÜZDE GÖSTERİMİ) ---
-        def format_perf(val):
-            if pd.isna(val): return "-"
-            renk = "🟢" if val >= 0 else "🔴"
-            prefix = "+" if val >= 0 else "" 
-            return f"{renk} %{prefix}{round(val, 2)}"
 
         # MACD
         macd_val = bugun.get('MACD_12_26_9')
@@ -156,14 +149,14 @@ def strateji_analizi(df, sembol):
         macd_etiket = "🟢 AL" if macd_al else "🔴 SAT"
 
         # --- TABLO VERİSİ ---
-        # BURAYI DÜZELTTİK: EMA 50 ve 100 Geri Geldi
+        # BURADA ARTIK STRING DEĞİL SAYI (FLOAT) SAKLIYORUZ
         veri = {
             "Hisse": sembol.replace(".IS", ""),
             "Fiyat": round(fiyat, 2),
-            "1H Değ.": format_perf(perf_1w),
-            "1A Değ.": format_perf(perf_1m),
-            "EMA(50)": round(ema_50, 2),   # GERİ EKLENDİ
-            "EMA(100)": round(ema_100, 2), # GERİ EKLENDİ
+            "1H Değ.": perf_1w, # Saf sayı
+            "1A Değ.": perf_1m, # Saf sayı
+            "EMA(50)": round(ema_50, 2),
+            "EMA(100)": round(ema_100, 2),
             "EMA(200)": round(ema_200, 2), 
             "MACD": macd_etiket,
             "RSI": round(rsi, 0),
@@ -213,6 +206,14 @@ def strateji_analizi(df, sembol):
     except Exception as e:
         return None
 
+# --- GÖRSEL FORMATLAYICI ---
+# Bu fonksiyon veriyi değiştirmez, sadece ekranda nasıl görüneceğini belirler
+def format_yuzde(val):
+    if pd.isna(val): return "-"
+    renk = "🟢" if val >= 0 else "🔴"
+    prefix = "+" if val >= 0 else ""
+    return f"{renk} %{prefix}{val:.2f}"
+
 # --- ARAYÜZ MANTIĞI ---
 if st.button("🚀 Portföyümü Analiz Et"):
     st.info("Portföy verileri çekiliyor... Lütfen bekleyiniz.")
@@ -241,23 +242,36 @@ if st.button("🚀 Portföyümü Analiz Et"):
     df_sonuc = pd.DataFrame(sonuclar)
 
     if not df_sonuc.empty:
-        # Sıralama
+        # Varsayılan Sıralama: Performansa Göre (Sayısal olarak doğru çalışır)
         df_sonuc = df_sonuc.sort_values(by=["S.Trend(G)", "RSI"], ascending=[False, False])
         
-        st.success("✅ Rapor Hazır! (EMA 50/100 Geri Getirildi, Performanslar Korundu)")
+        st.success("✅ Rapor Hazır! (Sıralama Artık Sayısal Olarak Doğru Çalışıyor)")
         
-        # Tabloyu Göster
-        st.dataframe(df_sonuc, use_container_width=True, height=600)
+        # TABLOYU GÖSTERİRKEN FORMATLIYORUZ (Veri sayı kalıyor, görüntü değişiyor)
+        # Bu yöntemle sütun başlığına tıklayınca DOĞRU sıralama yapar.
+        st.dataframe(
+            df_sonuc.style.format({
+                "1H Değ.": format_yuzde,
+                "1A Değ.": format_yuzde
+            }),
+            use_container_width=True, 
+            height=600
+        )
         
-        # Excel İndirme Butonu
+        # EXCEL İÇİN HAZIRLIK
+        # Excel'de de ikonları görmek istersen formatı buraya uyguluyoruz
+        df_excel = df_sonuc.copy()
+        df_excel["1H Değ."] = df_excel["1H Değ."].apply(format_yuzde)
+        df_excel["1A Değ."] = df_excel["1A Değ."].apply(format_yuzde)
+        
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            df_sonuc.to_excel(writer, index=False, sheet_name="Portfoy_Raporu")
+            df_excel.to_excel(writer, index=False, sheet_name="Portfoy_Raporu")
             
         st.download_button(
             label="📥 Excel Raporunu İndir",
             data=buffer,
-            file_name="Portfoy_Analiz_Raporu_V13.xlsx",
+            file_name="Portfoy_Analiz_Raporu_V14.xlsx",
             mime="application/vnd.ms-excel"
         )
     else:
