@@ -5,6 +5,7 @@ import pandas_ta as ta
 import warnings
 import json
 import os
+import requests
 from io import BytesIO
 
 # Uyarıları kapat
@@ -12,62 +13,93 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Portföy Analiz Botu V11", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Portföy Analiz Botu V13", page_icon="📊", layout="wide")
 
-st.title("📊 Kişisel Portföy Analiz Raporu (Yönetilebilir Mod)")
-st.markdown("Bu uygulama, **V16.1 Stratejisi** ile portföyünü ve piyasayı **isteğe bağlı** olarak tarar.")
+st.title("📊 Kişisel Portföy Analiz Raporu (4 Katmanlı)")
+st.markdown("Bu uygulama, **V18.0 Stratejisi** ile Portföy, BIST 100, **Popüler Yan Tahtalar** ve Tüm Pazarı analiz eder.")
 
-# --- DOSYA YÖNETİMİ (PORTFÖY KAYIT) ---
+# --- DOSYA YÖNETİMİ ---
 PORTFOY_DOSYASI = "portfoy.json"
 
 def portfoy_yukle():
     if os.path.exists(PORTFOY_DOSYASI):
         with open(PORTFOY_DOSYASI, "r") as f:
             return json.load(f)
-    return ["TUPRS.IS", "ASTOR.IS", "DOAS.IS", "MGROS.IS", "BIMAS.IS", "SOKM.IS", "AKBNK.IS", "YKBNK.IS", "EDATA.IS", "RUBNS.IS", "VESBE.IS", "TEHOL.IS"] # Varsayılan
+    return ["TUPRS.IS", "ASTOR.IS", "DOAS.IS", "MGROS.IS", "BIMAS.IS", "SOKM.IS", "AKBNK.IS", "YKBNK.IS", "EDATA.IS", "RUBNS.IS", "VESBE.IS", "TEHOL.IS"]
 
 def portfoy_kaydet(liste):
     with open(PORTFOY_DOSYASI, "w") as f:
         json.dump(liste, f)
 
-# Session State Başlangıcı
-if 'portfoy_listesi' not in st.session_state:
-    st.session_state['portfoy_listesi'] = portfoy_yukle()
+# Session State
+if 'portfoy_listesi' not in st.session_state: st.session_state['portfoy_listesi'] = portfoy_yukle()
+if 'sonuc_portfoy' not in st.session_state: st.session_state['sonuc_portfoy'] = None
+if 'sonuc_bist100' not in st.session_state: st.session_state['sonuc_bist100'] = None
+if 'sonuc_yan' not in st.session_state: st.session_state['sonuc_yan'] = None # YENİ
+if 'sonuc_tum' not in st.session_state: st.session_state['sonuc_tum'] = None
+if 'tum_hisseler_listesi' not in st.session_state: st.session_state['tum_hisseler_listesi'] = []
+if 'yan_hisseler_listesi' not in st.session_state: st.session_state['yan_hisseler_listesi'] = [] # YENİ
 
-if 'sonuc_portfoy' not in st.session_state:
-    st.session_state['sonuc_portfoy'] = None
-if 'sonuc_bist100' not in st.session_state:
-    st.session_state['sonuc_bist100'] = None
-if 'sonuc_tum' not in st.session_state:
-    st.session_state['sonuc_tum'] = None
-
-# --- BIST LİSTELERİ ---
+# --- STATİK LİSTELER ---
+# BIST 100 Listesi (Filtreleme ve 2. Sekme İçin)
 BIST_100_LISTESI = [
  "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS", "AKBNK.IS", "AKCNS.IS", "AKFYE.IS", "AKSA.IS", "AKSEN.IS", "ALARK.IS",
  "ALFAS.IS", "ANSGR.IS", "ARCLK.IS", "ASELS.IS", "ASTOR.IS", "ASUZU.IS", "AYDEM.IS", "BAGFS.IS", "BERA.IS", "BIENP.IS", 
- "BIMAS.IS", "BIOEN.IS", "BOBET.IS", "BRSAN.IS", "BRYAT.IS", "BSOKE.IS", "BTCIM.IS", "CANTE.IS", "CCOLA.IS", "CIMSA.IS",
+ "BIMAS.IS", "BIOEN.IS", "BOBET.IS", "BRSAN.IS", "BRYAT.IS", "BSOKE.IS", "BTCIM.IS", "CANTE.IS", "CCOLA.IS", "CIMSA.IS", 
  "CWENE.IS", "DOAS.IS", "DOHOL.IS", "EBEBK.IS", "ECILC.IS", "ECZYT.IS", "EGEEN.IS", "EKGYO.IS", "ENJSA.IS", "ENKAI.IS", 
  "EREGL.IS", "EUPWR.IS", "EUREN.IS", "FENER.IS", "FROTO.IS", "GARAN.IS", "GENIL.IS", "GESAN.IS", "GSRAY.IS", "GUBRF.IS", 
  "GWIND.IS", "HALKB.IS", "HEKTS.IS", "IPEKE.IS", "ISCTR.IS", "ISGYO.IS", "ISMEN.IS", "IZENR.IS", "KAYSE.IS", "KCAER.IS",
  "KCHOL.IS", "KLRHO.IS", "KMPUR.IS", "KONTR.IS", "KONYA.IS", "KORDS.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "MAVI.IS",
- "MGROS.IS", "MIATK.IS", "ODAS.IS", "OTKAR.IS", "OYAKC.IS", "PEKGY.IS", "PETKM.IS", "PGSUS.IS", "QUAGR.IS", "RALYH.IS",
- "REEDR.IS", "SAHOL.IS", "SASA.IS", "SAYAS.IS", "SDTTR.IS", "SISE.IS", "SKBNK.IS", "SMRTG.IS", "SOKM.IS", "TABGD.IS",
- "TARKM.IS", "TATEN.IS", "TAVHL.IS", "TCELL.IS", "THYAO.IS", "TKFEN.IS", "TOASO.IS", "TRALT.IS", "TRENJ.IS", "TRMET.IS",
+ "MGROS.IS", "MIATK.IS", "ODAS.IS", "OTKAR.IS", "OYAKC.IS", "PEKGY.IS", "PETKM.IS", "PGSUS.IS", "QUAGR.IS", "RALYH.IS", 
+ "REEDR.IS", "SAHOL.IS", "SASA.IS", "SAYAS.IS", "SDTTR.IS", "SISE.IS", "SKBNK.IS", "SMRTG.IS", "SOKM.IS", "TABGD.IS", 
+ "TARKM.IS", "TATEN.IS", "TAVHL.IS", "TCELL.IS", "THYAO.IS", "TKFEN.IS", "TOASO.IS", "TRALT.IS", "TRENJ.IS", "TRMET.IS", 
  "TSKB.IS", "TSPOR.IS", "TTKOM.IS", "TTRAK.IS", "TUPRS.IS", "TURSG.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS", "VESTL.IS", 
  "YEOTK.IS", "YKBNK.IS", "YYLGD.IS", "ZOREN.IS"
 ]
+# Karşılaştırma için .IS uzantısız set
+BIST_100_SET = set([h.replace(".IS", "") for h in BIST_100_LISTESI])
 
-BIST_DIGER_LISTESI = [
-    "TERA.IS", "TEHOL.IS", "EDATA.IS", "RUBNS.IS", "KLRHO.IS", "TURSG.IS", "ANHYT.IS", "ANSGR.IS", 
-    "TRGYO.IS", "HLGYO.IS", "OZKGY.IS", "GSDHO.IS", "IHLAS.IS", "NETAS.IS", "LOGO.IS", "KAREL.IS",
-    "PARSN.IS", "TMSN.IS", "KATMR.IS", "PRKME.IS", "NATEN.IS", "ESEN.IS", "MAGEN.IS", "HUNER.IS",
-    "KFEIN.IS", "LINK.IS", "ARDYZ.IS", "FONET.IS", "VBTYZ.IS", "ONCSM.IS", "SDTTR.IS", "TETMT.IS",
-    "DOCO.IS", "CLEBI.IS", "AYGAZ.IS", "TRCAS.IS", "DEVA.IS", "SELEC.IS", "MPARK.IS", "LKMNH.IS"
-]
-BIST_DIGER_LISTESI = [h for h in BIST_DIGER_LISTESI if h not in BIST_100_LISTESI]
+# --- CANLI HİSSE LİSTESİ ÇEKME (TRADINGVIEW) ---
+@st.cache_data(ttl=3600)
+def hisse_taramasi_yap(mod="tum"):
+    # Mod: 'tum' (Tüm Pazar) veya 'hacim' (Popüler Yan Tahtalar)
+    try:
+        url = "https://scanner.tradingview.com/turkey/scan"
+        
+        # Sıralama Kriteri: Popülerler için Hacim, Tümü için Piyasa Değeri
+        sort_criteria = "volume" if mod == "hacim" else "market_cap_basic"
+        range_limit = 250 if mod == "hacim" else 600 # Hacimde ilk 250'ye bakıp eleyeceğiz
+        
+        payload = {
+            "filter": [{"left": "type", "operation": "equal", "right": "stock"}],
+            "options": {"lang": "tr"},
+            "symbols": {"query": {"types": []}},
+            "columns": ["name", "close", "volume", "market_cap_basic"],
+            "sort": {"sortBy": sort_criteria, "sortOrder": "desc"},
+            "range": [0, range_limit]
+        }
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            tum_liste = [item['d'][0] for item in data['data']] # .IS eklemeden al
+            
+            if mod == "hacim":
+                # FİLTRELEME MANTIĞI: Listede olup BIST 100'de OLMAYANLARI al
+                yan_tahtalar = []
+                for h in tum_liste:
+                    if h not in BIST_100_SET:
+                        yan_tahtalar.append(f"{h}.IS")
+                return yan_tahtalar[:50] # En hacimli 50 yan tahta
+            else:
+                return [f"{h}.IS" for h in tum_liste] # Hepsini döndür
+        else:
+            return []
+    except Exception as e:
+        return []
 
-
-# --- SİDEBAR: PORTFÖY YÖNETİMİ ---
+# --- SİDEBAR ---
 with st.sidebar:
     st.header("💼 Portföy Yönetimi")
     st.write("📋 **Mevcut Hisselerin:**")
@@ -260,10 +292,10 @@ column_settings = {
     "RSI": st.column_config.NumberColumn(format="%.0f"),
 }
 
-# --- ARAYÜZ ---
-tab1, tab2, tab3 = st.tabs(["💼 Portföyüm", "🏢 BIST 100", "📈 BIST Tüm / Yan Tahtalar"])
+# --- ARAYÜZ (4 SEKME) ---
+tab1, tab2, tab3, tab4 = st.tabs(["💼 Portföyüm", "🏢 BIST 100", "🔥 Popüler Yan Tahtalar", "🌍 BIST Tüm Pazar"])
 
-# 1. SEKME: PORTFÖYÜM
+# 1. PORTFÖY
 with tab1:
     st.subheader(f"Portföy Analizi ({len(st.session_state['portfoy_listesi'])} Hisse)")
     if st.button("🚀 Portföyümü Analiz Et", key="btn_portfoy"):
@@ -277,13 +309,11 @@ with tab1:
         prog.progress(1.0)
     
     if st.session_state['sonuc_portfoy'] is not None:
-        # GÜNCELLENEN KISIM: width="stretch"
         st.dataframe(st.session_state['sonuc_portfoy'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
 
-# 2. SEKME: BIST 100
+# 2. BIST 100
 with tab2:
     st.subheader(f"BIST 100 Analizi ({len(BIST_100_LISTESI)} Hisse)")
-    st.info("⚠️ Tüm listeyi taramak 2-3 dakika sürebilir.")
     if st.button("🚀 BIST 100'ü Tara", key="btn_bist100"):
         prog = st.progress(0)
         stat = st.empty()
@@ -295,23 +325,59 @@ with tab2:
         prog.progress(1.0)
     
     if st.session_state['sonuc_bist100'] is not None:
-        # GÜNCELLENEN KISIM: width="stretch"
         st.dataframe(st.session_state['sonuc_bist100'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
 
-# 3. SEKME: TÜM / YAN TAHTALAR
+# 3. POPÜLER YAN TAHTALAR (YENİ)
 with tab3:
-    st.subheader(f"Yan Tahtalar ve Diğerleri ({len(BIST_DIGER_LISTESI)} Hisse)")
-    st.warning("⚠️ Bu liste geniştir, tarama süresi uzayabilir.")
-    if st.button("🚀 Diğer Hisseleri Tara", key="btn_tum"):
-        prog = st.progress(0)
-        stat = st.empty()
-        df = analiz_motoru(BIST_DIGER_LISTESI, prog, stat)
-        if not df.empty:
-            df = df.sort_values(by=["S.Trend(G)", "RSI"], ascending=[False, False])
-            st.session_state['sonuc_tum'] = df
-        stat.text("Tamamlandı.")
-        prog.progress(1.0)
+    st.subheader("🔥 Popüler Yan Tahtalar (BIST 100 Hariç - En Hacimli 50)")
+    st.markdown("*Kriter: BIST 100'de olmayan ve şu an en yüksek hacme sahip 50 hisse.*")
     
-    if st.session_state['sonuc_tum'] is not None:
-        # GÜNCELLENEN KISIM: width="stretch"
-        st.dataframe(st.session_state['sonuc_tum'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
+    if st.button("Listeyi Çek ve Analiz Et", key="btn_yan"):
+        with st.spinner("Piyasa taranıyor ve BIST 100 ayıklanıyor..."):
+            # Hacme göre sıralı, BIST 100 olmayan ilk 50 hisseyi çek
+            yan_liste = hisse_taramasi_yap(mod="hacim")
+            st.session_state['yan_hisseler_listesi'] = yan_liste
+        
+        if yan_liste:
+            st.info(f"Bulunan Popüler Hisseler: {', '.join([h.replace('.IS','') for h in yan_liste[:10]])} ... ve diğerleri.")
+            prog = st.progress(0)
+            stat = st.empty()
+            df = analiz_motoru(yan_liste, prog, stat)
+            if not df.empty:
+                df = df.sort_values(by=["S.Trend(G)", "RSI"], ascending=[False, False])
+                st.session_state['sonuc_yan'] = df
+            stat.text("Tamamlandı.")
+            prog.progress(1.0)
+    
+    if st.session_state['sonuc_yan'] is not None:
+        st.dataframe(st.session_state['sonuc_yan'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
+
+# 4. TÜM PAZAR
+with tab4:
+    st.subheader("🌍 BIST Tüm Pazar Analizi")
+    st.warning("⚠️ 500+ Hisse taranır. Süre: 10-15 Dakika.")
+    
+    if st.button("1. Adım: Listeyi Çek", key="btn_tum_cek"):
+        with st.spinner("Liste çekiliyor..."):
+            liste = hisse_taramasi_yap(mod="tum")
+            st.session_state['tum_hisseler_listesi'] = liste
+            st.success(f"{len(liste)} hisse bulundu.")
+            
+    if st.session_state['tum_hisseler_listesi']:
+        if st.button("2. Adım: Analizi Başlat", key="btn_tum_analiz"):
+            prog = st.progress(0)
+            stat = st.empty()
+            df = analiz_motoru(st.session_state['tum_hisseler_listesi'], prog, stat)
+            if not df.empty:
+                df = df.sort_values(by=["S.Trend(G)", "RSI"], ascending=[False, False])
+                st.session_state['sonuc_tum'] = df
+            stat.text("Bitti.")
+            prog.progress(1.0)
+            
+        if st.session_state['sonuc_tum'] is not None:
+            st.dataframe(st.session_state['sonuc_tum'].style.format({"1H Değ.": format_yuzde, "1A Değ.": format_yuzde}), column_config=column_settings, width="stretch")
+            
+            buffer = BytesIO()
+            with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+                st.session_state['sonuc_tum'].to_excel(writer, index=False, sheet_name="Tum_BIST")
+            st.download_button(label="📥 Tüm Raporu İndir", data=buffer, file_name="BIST_Full_Analiz.xlsx", mime="application/vnd.ms-excel")
